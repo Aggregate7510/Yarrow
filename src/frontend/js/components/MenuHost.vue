@@ -36,9 +36,11 @@ const pos = computed(() => {
   const a = state.menu?.anchor;
   if (!a || !wide.value) return {};
   const margin = 8;
-  let left = Math.min(a.right - size.value.w, window.innerWidth - size.value.w - margin);
+  // pointer anchors (context menu) open to the right of the cursor
+  const preferred = a.width === 0 ? a.left : a.right - size.value.w;
+  let left = Math.min(preferred, window.innerWidth - size.value.w - margin);
   left = Math.max(margin, left);
-  let top = a.bottom + 6;
+  let top = a.width === 0 ? a.top : a.bottom + 6;
   if (top + size.value.h > window.innerHeight - margin) top = Math.max(margin, a.top - size.value.h - 6);
   return { left: left + "px", top: top + "px" };
 });

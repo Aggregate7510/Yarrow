@@ -2,6 +2,8 @@
 
 import {
   state,
+  isSplit,
+  writeLocal,
   openReader,
   closeReader,
   closeMenu,
@@ -46,18 +48,35 @@ export function setupKeys(openSearch: () => void) {
     if (state.menu || state.sheet) return;
 
     const item = current();
+    const split = isSplit.value;
     switch (e.key) {
       case "j":
       case "ArrowRight":
         if (state.reader.open) openNeighbor(1);
-        else if (e.key === "j") focusCard(state.focusedIndex + 1);
-        else return;
+        else if (e.key === "j") {
+          focusCard(state.focusedIndex + 1);
+          // with the reading pane, moving through the list reads as you go
+          if (split && state.items[state.focusedIndex]) openReader(state.items[state.focusedIndex].id);
+        } else return;
         break;
       case "k":
       case "ArrowLeft":
         if (state.reader.open) openNeighbor(-1);
-        else if (e.key === "k") focusCard(state.focusedIndex - 1);
-        else return;
+        else if (e.key === "k") {
+          focusCard(state.focusedIndex - 1);
+          if (split && state.items[state.focusedIndex]) openReader(state.items[state.focusedIndex].id);
+        } else return;
+        break;
+      case " ": {
+        // space pages through the article in the reading pane, like Mail
+        const pane = document.querySelector<HTMLElement>(".reader");
+        if (!split || !state.reader.open || !pane) return;
+        pane.scrollBy({ top: (e.shiftKey ? -1 : 1) * pane.clientHeight * 0.85, behavior: "smooth" });
+        break;
+      }
+      case "\\":
+        state.sidebarCollapsed = !state.sidebarCollapsed;
+        writeLocal("yarrow.sidebarCollapsed", state.sidebarCollapsed ? "1" : "0");
         break;
       case "o":
       case "Enter":
@@ -97,8 +116,11 @@ export function setupKeys(openSearch: () => void) {
 
 export const shortcutList: [string, string][] = [
   ["j / k", "Next / previous article"],
+  ["right-click", "Article actions"],
   ["o or Enter", "Open article"],
   ["Esc", "Close article or menu"],
+  ["space", "Scroll the article (reading pane)"],
+  ["\\", "Show or hide the sidebar"],
   ["m", "Mark read / unread"],
   ["s", "Save for later / remove"],
   ["v", "Open original website"],

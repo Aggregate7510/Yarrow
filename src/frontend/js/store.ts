@@ -78,7 +78,31 @@ export const state = reactive({
   toasts: [] as Toast[],
   focusedIndex: -1,
   sidebarCollapsed: readLocal("yarrow.sidebarCollapsed") === "1",
+  // desktop: open articles in a pane beside the timeline ("split") or over it
+  readingPane: (readLocal("yarrow.readingPane") === "overlay" ? "overlay" : "split") as "split" | "overlay",
+  wide: false,
 });
+
+// The split reading pane needs room for a sidebar, a card column and an
+// article column, which a MacBook window has from about 1200px wide.
+const wideQuery = window.matchMedia("(min-width: 1200px)");
+state.wide = wideQuery.matches;
+wideQuery.addEventListener?.("change", e => {
+  const wasSplit = isSplit.value;
+  state.wide = e.matches;
+  // keep history consistent when the layout changes under an open article
+  if (wasSplit !== isSplit.value && state.reader.open && !isSplit.value) state.reader.open = false;
+});
+
+/** True when articles open beside the timeline instead of over it. */
+export const isSplit = computed(() => state.wide && state.readingPane === "split");
+
+export function setReadingPane(mode: "split" | "overlay") {
+  state.readingPane = mode;
+  writeLocal("yarrow.readingPane", mode);
+  if (state.reader.open && history.state?.yarrowReader) history.back();
+  state.reader.open = false;
+}
 
 function readLocal(key: string): string | null {
   try {
@@ -347,6 +371,7 @@ export async function loadItems(reset = false) {
 
 export function selectView(view: View) {
   const changed = !sameView(view, state.view);
+  if (changed && isSplit.value) state.reader.open = false;
   state.view = view;
   state.page = "timeline";
   state.sheet = null;
@@ -469,8 +494,13 @@ export async function openReader(id: number, opts: { push?: boolean } = {}) {
     fullText: null,
     fullTextLoading: false,
   });
-  if (opts.push !== false && !wasOpen) {
+  if (opts.push !== false && !wasOpen && !isSplit.value) {
     history.pushState({ yarrowReader: id }, "");
+  }
+  if (isSplit.value) {
+    // keep the selected card visible in the list while reading beside it
+    const el = document.querySelector(`.card[data-id="${id}"]`);
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
   try {
     const item = await api.items.get(id);
@@ -537,6 +567,11 @@ export async function loadFullText() {
 export function openMenu(event: Event | null, entries: MenuEntry[], title?: string) {
   const el = event?.currentTarget as HTMLElement | null;
   state.menu = { entries, title, anchor: el ? el.getBoundingClientRect() : null };
+}
+
+/** Open a menu at the pointer (right-click context menu). */
+export function openMenuAt(x: number, y: number, entries: MenuEntry[], title?: string) {
+  state.menu = { entries, title, anchor: new DOMRect(x, y, 0, 0) };
 }
 
 export function closeMenu() {

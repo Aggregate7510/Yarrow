@@ -95,6 +95,13 @@
             </button>
           </div>
         </div>
+        <div class="setting-row desktop-flex">
+          <span>Open articles</span>
+          <div class="segmented" role="group" aria-label="Open articles">
+            <button type="button" :aria-pressed="state.readingPane === 'split'" @click="setReadingPane('split')">Beside the list</button>
+            <button type="button" :aria-pressed="state.readingPane === 'overlay'" @click="setReadingPane('overlay')">Full page</button>
+          </div>
+        </div>
         <div class="setting-row">
           <span>Show first</span>
           <div class="segmented" role="group" aria-label="Sort order">
@@ -110,6 +117,7 @@
         </div>
       </div>
       <p class="hint">{{ navHint }}</p>
+      <p class="hint desktop-block">"Open articles" applies to this computer when the window is at least 1200 pixels wide.</p>
     </section>
 
     <section aria-labelledby="s-more">
@@ -145,6 +153,7 @@ import {
   openMenu,
   loadItems,
   writeLocal,
+  setReadingPane,
 } from "../store";
 import { createFolder, feedMenu, folderMenu, importOPML } from "../manage";
 import { applyTheme } from "../theme";

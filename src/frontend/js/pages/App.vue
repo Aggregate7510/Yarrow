@@ -1,8 +1,8 @@
 <template>
-  <div class="shell" :class="{ 'sidebar-collapsed': state.sidebarCollapsed }">
+  <div class="shell" :class="{ 'sidebar-collapsed': state.sidebarCollapsed, 'is-split': splitActive }">
     <v-sidebar />
 
-    <main class="main" :inert="state.reader.open || undefined">
+    <main class="main" :inert="(state.reader.open && !splitActive) || undefined">
       <div v-show="state.page === 'timeline'" class="timeline-page">
         <v-topbar ref="topbar" />
         <v-timeline />
@@ -25,7 +25,7 @@
       </button>
     </nav>
 
-    <v-reader v-if="state.reader.open" />
+    <v-reader v-if="state.reader.open || splitActive" :pane="splitActive" />
 
     <v-sheet v-if="state.sheet === 'folders'" title="Folders" @close="state.sheet = null">
       <div class="list-group sheet-nav">
@@ -50,8 +50,8 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from "vue";
-import { state, navMode, selectView, closeReader, loadItems, loadStatus, loadSubscriptions, loadErrors, restoreView } from "../store";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { state, isSplit, navMode, selectView, closeReader, loadItems, loadStatus, loadSubscriptions, loadErrors, restoreView } from "../store";
 import { setupKeys, shortcutList } from "../keys";
 import VIcon from "../components/Icon.vue";
 import VSidebar from "../components/Sidebar.vue";
@@ -65,6 +65,8 @@ import VAddFeed from "../components/AddFeed.vue";
 import VMenuHost from "../components/MenuHost.vue";
 
 const topbar = ref<InstanceType<typeof VTopbar>>();
+// the reading pane sits beside the timeline only; Settings uses the full width
+const splitActive = computed(() => isSplit.value && state.page === "timeline");
 
 function tabActive(t: string) {
   if (t === "settings") return state.page === "settings";
@@ -78,6 +80,7 @@ let timelineScroll = 0;
 watch(
   () => state.page,
   (page, prevPage) => {
+    if (page !== "timeline" && state.reader.open) closeReader();
     if (prevPage === "timeline") timelineScroll = window.scrollY;
     nextTick(() => window.scrollTo({ top: page === "timeline" ? timelineScroll : 0 }));
   },

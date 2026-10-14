@@ -19,10 +19,10 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every push, then builds
 - preview: text extraction (scripts/styles skipped), truncation incl. multibyte, title de-duplication, image choice (media first, srcset, emoji/tracker/1×1/data: skipped, unsafe schemes refused)
 - sanitizer: tracking pixels removed
 - server: card view fields and no full content, pagination over 45 items with equal timestamps (no duplicates), limit clamping, invalid status, mark-above-as-read, settings validation, CSRF (cross-site rejected, same-origin and non-browser allowed), security headers, no inline script, manifest/service worker under a base path, static ETag/304, cookie flags over HTTP and behind HTTPS proxy, auth on API but not on `/healthz`
-- storage: mark-above in both sort orders and within a folder, starred items untouched, folder timeline keyset pagination, `nav_mode` round trip, settings validation
+- storage: concurrent item and feed writes on a file database never fail (regression for an upstream "database is locked" bug), mark-above in both sort orders and within a folder, starred items untouched, folder timeline keyset pagination, `nav_mode` round trip, settings validation
 - migration: everything preserved, source byte-for-byte unchanged, refusal to overwrite, overwrite moves aside, bad inputs, live backup while a writer is open
 
-**Browser** (`tests/ui/run_ui_tests.py`, 21 tests, Chromium via Playwright, iPhone 390×844 / iPad 820×1180 / desktop 1440×900):
+**Browser** (`tests/ui/run_ui_tests.py`, 24 tests, Chromium via Playwright, iPhone 390×844 / iPad 820×1180 / desktop 1440×900 / MacBook Air 13" 1280×800, MacBook Pro 14" 1512×982 and 16" 1728×1117 at 2× pixel density):
 
 | Area | Checks |
 |---|---|
@@ -37,7 +37,10 @@ CI (`.github/workflows/ci.yml`) runs all of the above on every push, then builds
 | Empty folder | empty state with guidance |
 | Security | hostile article: no script execution, no event handlers, `javascript:` URLs, foreign iframes or inline styles survive; tracking pixel removed |
 | Themes | light, dark, sepia, and Auto following the OS setting |
-| Tablet, desktop | layout widths, sidebar, expanded and all-feeds modes, keyboard `j/k/o/Esc/?` |
+| Tablet, desktop | layout widths, sidebar, expanded and all-feeds modes |
+| Desktop reading pane | pane sits beside the list, opened card highlighted, no per-article history entries, `j/k` read through articles, space scrolls the article and not the list, Esc clears, `?` help |
+| Desktop interactions | hover quick actions (save works), right-click menu opens at the pointer, no hover actions on touch devices, full-page reader option remembered |
+| MacBook sizes | no overflow, usable card and pane widths at 1280/1512/1728, sidebar toggle with `\`, dark theme |
 | Settings | create/rename/delete folder, move and rename feed, navigation mode and refresh interval persist |
 | Add / remove feed | add into a folder, private address refused with a clear message, unsubscribe |
 | Slow network and errors | throttled connection shows skeletons; API failure shows an error with a working retry |
@@ -58,7 +61,7 @@ These could not be done in the development environment, which had no access to c
 
 - **The real `Dockerfile` has not been built here** (base images `node`, `golang` and `alpine` could not be pulled). Its stages were exercised piecewise: the same build commands and tags were run on the host, and the runtime contract was tested with an equivalent scratch image. CI builds the real image for both architectures.
 - **ARM64 has not been run on Raspberry Pi hardware.** CI runs the arm64 image under QEMU emulation, which validates the binary and container, not Pi-specific performance or storage behaviour.
-- **iOS Safari / WebKit** was not tested; Playwright's WebKit build could not be downloaded. Phone tests use Chromium with iPhone viewport, touch and user agent. Things worth checking on a real iPhone: home-screen install, safe-area insets, pull-to-refresh feel, the collapsing header.
+- **iOS Safari / WebKit** was not tested; Playwright's WebKit build could not be downloaded. Phone tests use Chromium with iPhone viewport, touch and user agent, and MacBook tests use Chromium at MacBook window sizes rather than Safari. Things worth checking on a real iPhone: home-screen install, safe-area insets, pull-to-refresh feel, the collapsing header.
 - **Tailscale Serve** was not run; the header behaviour Yarrow relies on was confirmed from Tailscale's source code.
 - **Real-world feeds** from the internet were not fetched (outbound access was blocked); all feed tests use generated local RSS/Atom feeds, plus Yarr's own parser fixtures.
 - **PostgreSQL** storage compiles and gained the same small changes as SQLite, but its tests need a Postgres container and were not run.

@@ -6,6 +6,7 @@
           class="icon-btn desktop-only"
           type="button"
           :aria-label="state.sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'"
+          :title="(state.sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar') + ' (\\)'"
           @click="toggleSidebar">
           <v-icon name="sidebar" />
         </button>
@@ -19,7 +20,16 @@
           <v-icon class="mobile-only" name="chevron-down" />
         </button>
         <h1 v-else class="view-title"><span>{{ title }}</span></h1>
-        <button class="icon-btn" type="button" aria-label="Search" :aria-pressed="searchOpen" @click="toggleSearch">
+        <button
+          v-if="state.view.type !== 'saved'"
+          class="icon-btn desktop-only"
+          type="button"
+          aria-label="Mark all as read"
+          title="Mark all as read"
+          @click="confirmMarkAll">
+          <v-icon name="check" />
+        </button>
+        <button class="icon-btn" type="button" aria-label="Search" title="Search (/)" :aria-pressed="searchOpen" @click="toggleSearch">
           <v-icon name="search" />
         </button>
         <button
@@ -27,6 +37,7 @@
           class="icon-btn"
           type="button"
           aria-label="Refresh feeds"
+          title="Refresh feeds (r)"
           :disabled="state.refreshing > 0"
           @click="refreshFeeds()">
           <span v-if="state.refreshing > 0" class="spinner"></span>
@@ -133,6 +144,12 @@ function toggleSearch() {
   else if (query.value) query.value = "";
 }
 defineExpose({ toggleSearch });
+
+function confirmMarkAll() {
+  const n = viewUnread.value;
+  if (!n) return;
+  if (n < 20 || window.confirm(`Mark ${n} articles in ${title.value} as read?`)) markAllRead();
+}
 
 function toggleSidebar() {
   state.sidebarCollapsed = !state.sidebarCollapsed;

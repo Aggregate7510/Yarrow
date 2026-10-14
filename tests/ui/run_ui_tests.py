@@ -15,6 +15,7 @@ is used instead of Chromium when --browser webkit is given and installed.
 
 import argparse
 import json
+import re
 import os
 import shutil
 import socket
@@ -450,27 +451,144 @@ def desktop_sidebar_and_modes(b, env):
     ctx.close()
 
 
+MACBOOKS = {
+    "macbook-air-13": dict(viewport={"width": 1280, "height": 800}, device_scale_factor=2),
+    "macbook-14": dict(viewport={"width": 1512, "height": 982}, device_scale_factor=2),
+    "macbook-16": dict(viewport={"width": 1728, "height": 1117}, device_scale_factor=2),
+}
+
+
 @test
-def desktop_reader_and_keyboard(b, env):
+def desktop_split_reading_pane(b, env):
     reset_view(env)
     ctx, page = open_app(b, env, DESKTOP)
+    # empty pane beside the timeline before anything is opened
+    expect(page.locator(".reader.is-pane .pane-empty")).to_be_visible()
+    shot(page, "desktop-split-empty")
+    timeline_box = page.locator(".card").first.bounding_box()
+    pane_box = page.locator(".reader.is-pane").bounding_box()
+    assert timeline_box["x"] + timeline_box["width"] <= pane_box["x"] + 1, (timeline_box, pane_box)
+
+    cards = page.locator(".card")
+    target = cards.nth(2)
+    item_id = target.get_attribute("data-id")
+    target.locator(".card-title").click()
+    expect(page.locator(".reader .article h1")).to_be_visible()
+    # the timeline stays visible and the opened card is highlighted
+    assert page.locator(".card").first.is_visible()
+    expect(page.locator(f'.card[data-id="{item_id}"]')).to_have_class(re.compile("is-selected"))
+    assert page.locator(".article").bounding_box()["width"] <= 760
+    assert env.item_status(item_id) != "unread"  # read (or still saved from an earlier test)
+    # no history entry per article in split mode
+    assert page.evaluate("history.state && history.state.yarrowReader") in (None, False)
+    shot(page, "desktop-split-reader")
+
+    # j/k move through articles directly in the pane
+    title = page.locator(".article h1").inner_text()
     page.keyboard.press("j")
+    expect(page.locator(".article h1")).not_to_have_text(title)
+    expect(page.locator(".card.is-selected")).to_have_count(1)
+    assert page.locator(".card.is-selected").get_attribute("data-id") != item_id
+
+    # space pages through the article, not the timeline
+    page.wait_for_timeout(700)  # let the list finish scrolling to the selected card
+    y = page.evaluate("window.scrollY")
+    page.locator(".reader").evaluate("e => e.scrollTo(0, 0)")
+    page.keyboard.press(" ")
+    page.wait_for_timeout(600)
+    assert page.locator(".reader").evaluate("e => e.scrollTop") > 100
+    assert page.evaluate("window.scrollY") == y
+
+    page.keyboard.press("Escape")
+    expect(page.locator(".reader .pane-empty")).to_be_visible()
+    expect(page.locator(".card.is-selected")).to_have_count(0)
+    page.keyboard.press("?")
+    expect(page.locator(".sheet .kbd-list")).to_be_visible()
+    ctx.close()
+
+
+@test
+def desktop_hover_and_context_menu(b, env):
+    reset_view(env)
+    ctx, page = open_app(b, env, DESKTOP)
+    card = page.locator(".card").nth(4)
+    item_id = card.get_attribute("data-id")
+    card.hover()
+    quick = card.locator(".card-quick")
+    expect(quick.first).to_be_visible()
+    shot(page, "desktop-hover-actions")
+    card.locator(".card-quick[aria-label='Save for later']").click()
+    page.wait_for_timeout(300)
+    assert env.item_status(item_id) == "starred"
+    # right-click opens the article menu at the pointer
+    box = page.locator(".card").nth(5).bounding_box()
+    page.mouse.click(box["x"] + 60, box["y"] + box["height"] - 40, button="right")
+    menu = page.locator(".menu")
+    expect(menu).to_be_visible()
+    mbox = menu.bounding_box()
+    assert abs(mbox["x"] - (box["x"] + 60)) < 30, (mbox, box)
+    assert any("Copy link" in t for t in menu.locator(".menu-item").all_inner_texts())
+    shot(page, "desktop-context-menu")
+    page.keyboard.press("Escape")
+    expect(menu).to_have_count(0)
+    # touch devices don't get hover actions
+    ctx.close()
+    ctx, page = open_app(b, env, IPHONE)
+    assert not page.locator(".card .card-quick").first.is_visible()
+    ctx.close()
+
+
+@test
+def desktop_full_page_reader_option(b, env):
+    reset_view(env)
+    ctx, page = open_app(b, env, DESKTOP)
+    page.locator(".sidebar .nav-item", has_text="Settings").click()
+    page.locator(".segmented button", has_text="Full page").click()
+    page.locator(".sidebar .nav-item", has_text="All Feeds").click()
+    expect(page.locator(".reader")).to_have_count(0)
     page.keyboard.press("j")
-    assert page.locator(".card.is-focused").count() == 1
     page.keyboard.press("o")
     expect(page.locator(".reader .article h1")).to_be_visible()
     w = page.locator(".article").bounding_box()["width"]
     assert w <= 690, w
     shot(page, "desktop-reader")
-    first_title = page.locator(".article h1").inner_text()
-    page.keyboard.press("j")
-    page.wait_for_timeout(400)
-    assert page.locator(".article h1").inner_text() != first_title
     page.keyboard.press("Escape")
     expect(page.locator(".reader")).to_have_count(0)
-    page.keyboard.press("?")
-    expect(page.locator(".sheet .kbd-list")).to_be_visible()
+    # the choice is remembered per browser
+    page.reload()
+    page.wait_for_selector(".card")
+    expect(page.locator(".reader")).to_have_count(0)
+    page.evaluate("localStorage.setItem('yarrow.readingPane', 'split')")
     ctx.close()
+
+
+@test
+def macbook_window_sizes(b, env):
+    reset_view(env)
+    for name, device in MACBOOKS.items():
+        ctx, page = open_app(b, env, device)
+        no_horizontal_overflow(page)
+        assert page.locator(".sidebar").is_visible()
+        card = page.locator(".card").first.bounding_box()
+        pane = page.locator(".reader.is-pane").bounding_box()
+        assert card["width"] >= 360, (name, card)
+        assert pane["width"] >= 500, (name, pane)
+        page.locator(".card").nth(1).locator(".card-title").click()
+        expect(page.locator(".reader .article h1")).to_be_visible()
+        shot(page, f"{name}-split")
+        # the sidebar collapses with backslash and gives the list more room
+        page.keyboard.press("\\")
+        page.wait_for_timeout(300)
+        assert page.locator(".card").first.bounding_box()["width"] >= card["width"]
+        page.keyboard.press("\\")
+        ctx.close()
+    # dark theme on the most common size
+    ctx, page = open_app(b, env, MACBOOKS["macbook-14"], theme="night")
+    page.locator(".card").nth(3).locator(".card-title").click()
+    expect(page.locator(".reader .article h1")).to_be_visible()
+    shot(page, "macbook-14-split-dark")
+    ctx.close()
+    env.api("api/settings", "PUT", {"theme_name": "light"})
 
 
 @test

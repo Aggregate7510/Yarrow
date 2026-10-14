@@ -23,7 +23,17 @@ type SQLiteStorage struct {
 
 func New(path string) (*SQLiteStorage, error) {
 	if pos := strings.IndexRune(path, '?'); pos == -1 {
-		params := "_journal=WAL&_sync=NORMAL&_busy_timeout=5000&cache=shared"
+		// _txlock=immediate: transactions take the write lock up front, so
+		// concurrent writers wait (busy_timeout) instead of failing when a
+		// deferred transaction cannot upgrade its lock.
+		params := "_journal=WAL&_sync=NORMAL&_busy_timeout=5000&_txlock=immediate"
+		// Shared-cache mode reports table-level contention as SQLITE_LOCKED,
+		// which bypasses busy_timeout and made concurrent refresh writes fail
+		// with "database is locked". It is only needed so that all pooled
+		// connections see the same in-memory database.
+		if strings.Contains(path, ":memory:") {
+			params += "&cache=shared"
+		}
 		log.Printf("opening db with params: %s", params)
 		path = path + "?" + params
 	}

@@ -1,7 +1,28 @@
 <template>
-  <div class="reader" ref="scroller" role="dialog" aria-modal="true" :aria-label="item?.title || 'Article'" tabindex="-1">
+  <div
+    class="reader"
+    :class="{ 'is-pane': pane }"
+    ref="scroller"
+    :role="pane ? 'region' : 'dialog'"
+    :aria-modal="pane ? undefined : 'true'"
+    :aria-label="item?.title || 'Article'"
+    tabindex="-1">
+    <div v-if="pane && !state.reader.open" class="pane-empty">
+      <img :src="'./static/icons/icon-192.png'" alt="" />
+      <h2>{{ viewTitle() }}</h2>
+      <p v-if="viewUnread">{{ viewUnread }} unread {{ viewUnread === 1 ? "article" : "articles" }}</p>
+      <p v-else>Nothing unread here.</p>
+      <dl class="pane-keys">
+        <div><dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Read the next or previous article</dd></div>
+        <div><dt><kbd>space</kbd></dt><dd>Scroll the article</dd></div>
+        <div><dt><kbd>s</kbd></dt><dd>Save for later</dd></div>
+        <div><dt><kbd>m</kbd></dt><dd>Mark read or unread</dd></div>
+        <div><dt><kbd>v</kbd></dt><dd>Open the original site</dd></div>
+      </dl>
+    </div>
+    <template v-else>
     <div class="reader-bar">
-      <button class="reader-back" type="button" @click="closeReader()">
+      <button v-if="!pane" class="reader-back" type="button" @click="closeReader()">
         <v-icon name="chevron-left" /> Back
       </button>
       <div class="grow"></div>
@@ -37,6 +58,9 @@
           <v-icon name="chevron-down" />
         </button>
       </template>
+      <button v-if="pane" class="icon-btn" type="button" aria-label="Close article" title="Close (Esc)" @click="closeReader()">
+        <v-icon name="x" />
+      </button>
     </div>
 
     <article class="article">
@@ -83,6 +107,7 @@
         </nav>
       </template>
     </article>
+    </template>
   </div>
 </template>
 
@@ -91,6 +116,8 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import {
   state,
   feedsById,
+  viewTitle,
+  unreadFor,
   closeReader,
   openReader,
   openNeighbor,
@@ -107,7 +134,9 @@ import { dateTimeString } from "../utils";
 import VIcon from "./Icon.vue";
 import VFavicon from "./Favicon.vue";
 
+const props = defineProps<{ pane?: boolean }>();
 const scroller = ref<HTMLElement>();
+const viewUnread = computed(() => (state.view.type === "saved" ? 0 : unreadFor(state.view)));
 const item = computed(() => state.reader.item);
 const feed = computed(() => (item.value ? feedsById.value[item.value.feed_id] : undefined));
 const prev = computed(() => readerNeighbor(-1));
@@ -131,7 +160,9 @@ watch(
   () => state.reader.id,
   () => nextTick(() => scroller.value?.scrollTo({ top: 0 })),
 );
-onMounted(() => scroller.value?.focus({ preventScroll: true }));
+onMounted(() => {
+  if (!props.pane) scroller.value?.focus({ preventScroll: true });
+});
 
 function textMenu(e: Event) {
   const size = state.settings.theme_size || 1;

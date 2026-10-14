@@ -1573,3 +1573,154 @@ form.list-row:focus-within {
     top: calc(var(--safe-top) + 72px);
   }
 }
+
+/* ================================================== desktop / web app */
+
+.desktop-flex,
+.desktop-block {
+  display: none !important;
+}
+@media (min-width: 960px) {
+  .desktop-flex {
+    display: flex !important;
+  }
+  .desktop-block {
+    display: block !important;
+  }
+}
+
+/* quick actions on cards, only for mouse/trackpad users */
+.card-quick {
+  display: none;
+  width: 32px;
+  height: 32px;
+  margin: -4px 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .card {
+    transition: border-color 0.15s ease;
+  }
+  .card:hover {
+    border-color: var(--line-strong);
+  }
+  .card:hover .card-quick,
+  .card:focus-within .card-quick {
+    display: inline-flex;
+  }
+  /* the time gives way to the actions while hovering */
+  .card:hover .card-meta time,
+  .card:focus-within .card-meta time {
+    display: none;
+  }
+}
+
+.card.is-selected {
+  border-color: var(--stem);
+  box-shadow: 0 0 0 1px var(--stem);
+  background: color-mix(in srgb, var(--stem) 5%, var(--surface));
+}
+
+.sidebar-scroll,
+.reader,
+.menu,
+.sheet {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+@media (min-width: 960px) and (max-width: 1439px) {
+  :root {
+    --sidebar: 240px;
+  }
+}
+
+/* split reading pane: timeline on the left, article on the right */
+@media (min-width: 1200px) {
+  :root {
+    --reader-w: clamp(520px, 47vw, 880px);
+  }
+  .shell.is-split .main {
+    margin-right: var(--reader-w);
+  }
+  .shell.is-split .column {
+    max-width: 620px;
+    padding: 0 20px;
+  }
+  .shell.is-split .reader.is-pane {
+    left: auto;
+    right: 0;
+    width: var(--reader-w);
+    z-index: 20;
+    border-left: 1px solid var(--line);
+    animation: none;
+  }
+  .shell.is-split .toasts {
+    left: calc((100vw - var(--reader-w) + var(--sidebar)) / 2);
+  }
+  .shell.is-split.sidebar-collapsed .toasts {
+    left: calc((100vw - var(--reader-w)) / 2);
+  }
+  .reader.is-pane .reader-bar {
+    padding-top: 0;
+    min-height: 56px;
+  }
+  .reader.is-pane .article {
+    padding: 28px 40px 64px;
+  }
+}
+
+.pane-empty {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  text-align: center;
+  color: var(--ink-2);
+}
+.pane-empty img {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  margin-bottom: 18px;
+}
+.pane-empty h2 {
+  margin: 0;
+  font-family: var(--font-round);
+  font-size: 1.5rem;
+  color: var(--ink);
+}
+.pane-empty p {
+  margin: 6px 0 0;
+}
+.pane-keys {
+  margin: 32px 0 0;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  font-size: 0.9375rem;
+}
+.pane-keys div {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.pane-keys dt {
+  text-align: right;
+}
+.pane-keys dd {
+  margin: 0;
+  color: var(--ink-3);
+}
+/* keep a card clear of the sticky header when scrolled into view */
+.card {
+  scroll-margin-top: calc(var(--topbar-h, 140px) + 12px);
+  scroll-margin-bottom: 16px;
+}
+@media (min-width: 960px) {
+  .card {
+    scroll-margin-top: 136px;
+  }
+}

@@ -10,7 +10,7 @@ Yarrow is a fork of [Yarr](https://github.com/nkanaev/yarr) by Nazar Kanaev. It 
   <img src="docs/screenshots/phone-reader.png" width="240" alt="Article reader">
 </p>
 <p align="center">
-  <img src="docs/screenshots/desktop-all-feeds.png" width="740" alt="Desktop layout with folder sidebar">
+  <img src="docs/screenshots/macbook-14-split.png" width="760" alt="MacBook: folder sidebar, timeline and reading pane side by side">
 </p>
 
 ## What you get
@@ -19,7 +19,8 @@ Yarrow is a fork of [Yarr](https://github.com/nkanaev/yarr) by Nazar Kanaev. It 
 - **Cards.** Feed name and icon, relative time, headline, a 3–4 line snippet taken from the article itself, and the lead image when there is one. Unread articles carry a small gold dot.
 - **Folder-only navigation** (default). Navigate by folders alone; each folder is its own merged timeline. *Expanded* mode lists the feeds inside folders like Yarr; *All feeds* mode hides navigation entirely.
 - **Yarr's menus, kept.** Per-article ⋯ menu: mark read/unread, save for later, open original, copy link, share, mark above as read. Per-feed and per-folder menus with Yarr's actions (website, feed link, rename, change link, move to folder, delete).
-- **A reader that feels native.** Clean typography, sans/serif/mono, text size, "Load full article" for truncated feeds, previous/next, and the back gesture returns you to exactly where you were in the timeline.
+- **A real desktop web app.** On a MacBook or any window wider than 1200px, articles open in a reading pane beside the timeline, like Mail: the list stays put, the open article is highlighted, `j`/`k` read the next or previous article, space pages through it. Cards show save and mark-read buttons on hover, right-click opens the article menu, the sidebar collapses with `\`. Prefer the full-page reader? Switch it in Settings.
+- **A reader that feels native on phones.** Clean typography, sans/serif/mono, text size, "Load full article" for truncated feeds, previous/next, and the back gesture returns you to exactly where you were in the timeline.
 - **Installable PWA.** Add to your iPhone home screen. The app shell and recently viewed pages work offline.
 - **Private by design.** No analytics, no third-party requests from the app shell, strict Content-Security-Policy, CSRF protection, and an SSRF guard on every outbound fetch.
 - **Light on hardware.** ~25 MB RAM idle, one process, SQLite, no Redis or Postgres needed.

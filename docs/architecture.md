@@ -33,6 +33,7 @@ All new server code lives in separate files where possible (`src/server/yarrow.g
 - **Subcommands:** `migrate` (verified Yarr import) and `backup` (`VACUUM INTO` snapshot).
 - **Feed add** returns the discovery error and fetches the favicon immediately.
 - **OPML import** now returns 400 for a missing file and caps uploads at 10 MiB.
+- **SQLite concurrency fix.** Yarr opened file databases in shared-cache mode with deferred transactions; concurrent writes during a refresh (items + favicons) could fail with "database is locked" and silently drop a feed's new articles until the next refresh. File databases now use private caches and `BEGIN IMMEDIATE` so writers wait on the busy timeout instead. A regression test hammers a file database from 16 goroutines.
 
 ### Security
 
@@ -73,6 +74,7 @@ src/frontend/
 
 Design notes:
 
+- **Desktop reading pane.** At ≥1200px the reader becomes a fixed pane on the right (`--reader-w: clamp(520px, 47vw, 880px)`) and the timeline keeps the window's scroll, so infinite scroll, scroll position and keyboard navigation work exactly as on phones. No history entry is pushed per article in this mode; `j/k` open articles directly, space scrolls the pane, Esc clears it. The choice between "beside the list" and "full page" is stored per browser (`localStorage`). Hover-only quick actions use `@media (hover: hover) and (pointer: fine)`, so touch devices never get them; right-click opens the same menu as ⋯.
 - **Scroll preservation.** The reader is a fixed overlay; the timeline stays mounted underneath, so closing an article returns to the exact spot. Opening pushes a history entry, so the back button/gesture closes it.
 - **Read state** changes only on open or explicit action. Items that become read stay in an Unread list until it is reloaded, so nothing jumps.
 - **Navigation modes** map onto the same views: folder-only shows folder chips (phone) and folders (sidebar); expanded adds feeds under folders using Yarr's persisted `is_expanded`; all-feeds hides folder navigation.
