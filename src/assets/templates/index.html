@@ -2,22 +2,26 @@
 <html lang="{{ .settings.language }}" data-theme="{{ .settings.theme_name }}">
 <head>
     <meta charset="UTF-8">
-    <title>yarr!</title>
-    <link rel="stylesheet" href="./static/bundle.css">
+    <title>Yarrow</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#f6f3ee" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Yarrow">
+    <meta name="referrer" content="no-referrer">
+    <link rel="stylesheet" href="./static/bundle.css?v={{ .version }}">
     <link rel="icon" href="./static/favicon.svg" type="image/svg+xml">
     <link rel="alternate icon" href="./static/favicon.png" type="image/png">
-    <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <script>
-        window.app = window.app || {}
-        window.app.settings = {{ .settings }};
-        window.app.authenticated = {{ .authenticated }};
-        window.app.requiresAuth = {{ .requiresAuth }};
-    </script>
+    <link rel="apple-touch-icon" href="./static/icons/apple-touch-icon.png">
+    <link rel="manifest" href="./manifest.json">
+    <script id="app-config" type="application/json">{{ .config }}</script>
 </head>
 <body>
-    <div id="app" v-cloak></div>
-    <script src="./static/bundle.js"></script>
+    <div id="app"></div>
+    <noscript><p class="noscript">Yarrow needs JavaScript enabled.</p></noscript>
+    <script src="./static/bundle.js?v={{ .version }}"></script>
 </body>
 </html>

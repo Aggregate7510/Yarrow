@@ -1,9 +1,12 @@
 {
+  "name": "yarrow",
+  "private": true,
   "type": "module",
   "scripts": {
     "build": "node build.js",
     "watch": "node build.js --watch",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test:ui": "node --test tests/ui/"
   },
   "prettier": {
     "printWidth": 100,
@@ -23,8 +26,6 @@
     "vue-tsc": "^3.3.7"
   },
   "dependencies": {
-    "@fluent/bundle": "^0.19.1",
-    "bootstrap": "^5.3.8",
     "vue": "^3.5.41"
   }
 }

@@ -1,33 +1,39 @@
-import { createApp, ref, defineComponent, h, nextTick, onMounted } from "vue";
-import i18n from "./i18n";
+import { createApp, defineComponent, h, ref } from "vue";
 import App from "./pages/App.vue";
 import Login from "./pages/Login.vue";
 import api from "./api";
-import { setupKeybindings } from "./key";
+import { applyTheme, watchSystemTheme } from "./theme";
+import { state } from "./store";
 
-const ready = ref(window.app.authenticated);
+// configuration is embedded by the server as JSON (no inline script, so the
+// page can run under a strict Content-Security-Policy)
+const configEl = document.getElementById("app-config");
+window.app = configEl ? JSON.parse(configEl.textContent || "{}") : {};
+Object.assign(state.settings, window.app.settings || {});
+state.requiresAuth = !!window.app.requiresAuth;
+state.version = window.app.version || "";
+
+applyTheme(state.settings.theme_name);
+watchSystemTheme(() => state.settings.theme_name);
+
+const ready = ref(!!window.app.authenticated);
 
 const Root = defineComponent({
   setup() {
-    const appRef = ref<InstanceType<typeof App>>();
-
-    const onLogin = () => {
-      api.settings.get().then(settings => {
-        window.app.settings = settings;
-        window.app.authenticated = true;
-        ready.value = true;
-        nextTick(() => appRef.value && setupKeybindings(appRef.value));
-      });
+    const onLogin = async () => {
+      const settings = await api.settings.get();
+      Object.assign(state.settings, settings);
+      applyTheme(settings.theme_name);
+      ready.value = true;
     };
-
-    onMounted(() => {
-      if (appRef.value) setupKeybindings(appRef.value);
-    });
-
-    return () => (ready.value ? h(App, { ref: appRef }) : h(Login, { onLogin }));
+    return () => (ready.value ? h(App) : h(Login, { onLogin }));
   },
 });
 
-const application = createApp(Root);
-application.use(i18n);
-application.mount("#app");
+createApp(Root).mount("#app");
+
+if ("serviceWorker" in navigator && window.isSecureContext) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
+  });
+}

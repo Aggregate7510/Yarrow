@@ -45,6 +45,28 @@ export interface Settings {
   theme_size: number;
   refresh_rate: number;
   language: string;
+  nav_mode: NavMode;
+}
+
+export type NavMode = "folders" | "expanded" | "all";
+
+/** Compact item used by the timeline (`/api/items?view=cards`). */
+export interface CardItem {
+  id: number;
+  feed_id: number;
+  title: string;
+  link: string;
+  date: string;
+  status: ItemStatus;
+  snippet: string;
+  image?: string;
+  has_audio?: boolean;
+  has_video?: boolean;
+}
+
+export interface CardListResponse {
+  list: CardItem[];
+  has_more: boolean;
 }
 
 export interface FeedStat {
@@ -80,7 +102,10 @@ export interface FeedCreateMultiple {
   choice: FeedLink[];
 }
 
-export type FeedCreateResponse = FeedCreateSuccess | FeedCreateMultiple | { status: "notfound" };
+export type FeedCreateResponse =
+  | FeedCreateSuccess
+  | FeedCreateMultiple
+  | { status: "notfound"; error?: string };
 
 export interface CrawlResponse {
   content: string;
@@ -118,16 +143,19 @@ export interface ItemListQuery {
   search?: string;
   oldest_first?: boolean;
   after?: number;
+  limit?: number;
+  view?: "cards";
 
   [key: string]: string | number | boolean | undefined;
 }
 
 export interface ItemMarkQuery {
-  feed_id?: string;
-  folder_id?: string;
-  before?: number;
+  feed_id?: string | number;
+  folder_id?: string | number;
+  above_id?: number;
+  oldest_first?: boolean;
 
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | boolean | undefined;
 }
 
 export interface SettingsUpdateData {
@@ -141,4 +169,5 @@ export interface SettingsUpdateData {
   theme_size?: number;
   refresh_rate?: number;
   language?: string;
+  nav_mode?: NavMode;
 }

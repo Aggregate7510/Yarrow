@@ -15,6 +15,7 @@ import type {
   ItemListQuery,
   SettingsUpdateData,
   ItemMarkQuery,
+  CardListResponse,
 } from "./api-types";
 
 export class HTTPError extends Error {
@@ -27,6 +28,9 @@ export class HTTPError extends Error {
   }
 }
 
+/** True when the response came from the offline cache of the service worker. */
+export let lastResponseFromCache = false;
+
 export class NetworkError extends Error {
   constructor(msg: string) {
     super(msg);
@@ -36,7 +40,7 @@ export class NetworkError extends Error {
 type ApiOptions = {
   json?: object;
   body?: BodyInit;
-  query?: Record<string, string | number | boolean>;
+  query?: Record<string, string | number | boolean | undefined>;
 };
 
 function api(method: string, endpoint: string, opts: ApiOptions = {}) {
@@ -50,7 +54,11 @@ function api(method: string, endpoint: string, opts: ApiOptions = {}) {
   init.headers.set("x-requested-by", "yarr");
 
   if (query !== undefined) {
-    url = url + "?" + new URLSearchParams(query as Record<string, string>).toString();
+    const clean: Record<string, string> = {};
+    for (const [k, v] of Object.entries(query)) {
+      if (v !== undefined && v !== null && v !== "") clean[k] = String(v);
+    }
+    url = url + "?" + new URLSearchParams(clean).toString();
   }
   if (body !== undefined) {
     init.body = body;
@@ -66,6 +74,7 @@ function api(method: string, endpoint: string, opts: ApiOptions = {}) {
       throw err;
     })
     .then(res => {
+      if (method === "get") lastResponseFromCache = res.headers.get("x-yarrow-offline") === "1";
       if (!res.ok) throw new HTTPError(res);
       return res;
     });
@@ -73,18 +82,6 @@ function api(method: string, endpoint: string, opts: ApiOptions = {}) {
 
 function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
-}
-
-function param(query: Record<string, string | number | boolean>) {
-  if (!query) return "";
-  return (
-    "?" +
-    Object.keys(query)
-      .map(function (key) {
-        return encodeURIComponent(key) + "=" + encodeURIComponent(query[key]);
-      })
-      .join("&")
-  );
 }
 
 export default {
@@ -100,9 +97,6 @@ export default {
     },
     delete(id: number): Promise<Response> {
       return api("delete", `./api/feeds/${id}`);
-    },
-    list_items(id: number): Promise<Item[]> {
-      return api("get", `./api/feeds/${id}/items`).then(json<Item[]>);
     },
     refresh(): Promise<Response> {
       return api("post", "./api/feeds/refresh");
@@ -124,9 +118,6 @@ export default {
     delete(id: number): Promise<Response> {
       return api("delete", `./api/folders/${id}`);
     },
-    list_items(id: number): Promise<Item[]> {
-      return api("get", `./api/folders/${id}/items`).then(json<Item[]>);
-    },
   },
   items: {
     get(id: number): Promise<Item> {
@@ -134,16 +125,21 @@ export default {
     },
     list(query?: ItemListQuery): Promise<ItemListResponse> {
       // TODO: fix query annotation
-      return api("get", "./api/items", { query: query as Record<string, string> }).then(
+      return api("get", "./api/items", { query }).then(
         json<ItemListResponse>,
       );
+    },
+    cards(query: ItemListQuery): Promise<CardListResponse> {
+      return api("get", "./api/items", {
+        query: { ...query, view: "cards" },
+      }).then(json<CardListResponse>);
     },
     update(id: number, data: ItemUpdateData): Promise<Response> {
       return api("put", `./api/items/${id}`, { json: data });
     },
     mark_read(query: ItemMarkQuery): Promise<Response> {
       // TODO: fix query annotation
-      return api("put", "./api/items", { query: query as Record<string, string> });
+      return api("put", "./api/items", { query });
     },
   },
   settings: {
