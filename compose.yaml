@@ -1,0 +1,49 @@
+# Yarrow with Docker Compose (Raspberry Pi 64-bit or any amd64/arm64 host).
+#
+#   cp .env.example .env    # optional: adjust port, password, timezone
+#   docker compose up -d --build
+#
+# By default the app listens on 127.0.0.1 only, so nothing is exposed to your
+# LAN or the internet. Reach it from your devices with Tailscale Serve (see
+# docs/tailscale.md), or set YARROW_BIND=0.0.0.0 to open it on your LAN.
+
+services:
+  yarrow:
+    build:
+      context: .
+      args:
+        VERSION: ${YARROW_VERSION:-local}
+    image: yarrow:${YARROW_VERSION:-local}
+    container_name: yarrow
+    restart: unless-stopped
+    ports:
+      - "${YARROW_BIND:-127.0.0.1}:${YARROW_PORT:-7070}:7070"
+    volumes:
+      - yarrow-data:/data
+    environment:
+      TZ: ${TZ:-UTC}
+      # "username:password" to require a login (recommended outside a tailnet)
+      YARR_AUTH: ${YARR_AUTH:-}
+      # serve under a sub-path, e.g. /rss (leave empty for the root)
+      YARR_BASE: ${YARR_BASE:-}
+      # private networks feeds may be fetched from, e.g. 192.168.1.0/24
+      YARR_ALLOWED_NETWORKS: ${YARR_ALLOWED_NETWORKS:-}
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  yarrow-data:

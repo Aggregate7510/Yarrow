@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+out
+docs
+tests
+scripts
+etc
+*.db
+*.db-wal
+*.db-shm
+**/__pycache__
+src/assets/static/bundle.*
+src/assets/static/sw.js
+compose*.yaml
+.env
