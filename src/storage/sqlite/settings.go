@@ -43,6 +43,8 @@ func (s *SQLiteStorage) GetSettings() model.Settings {
 			json.Unmarshal(val, &result.RefreshRate)
 		case "language":
 			json.Unmarshal(val, &result.Language)
+		case "nav_mode":
+			json.Unmarshal(val, &result.NavMode)
 		}
 	}
 	return result
@@ -100,6 +102,9 @@ func (s *SQLiteStorage) UpdateSettings(params model.UpdateSettingsParams) bool {
 	}
 	if params.Language != nil {
 		errs = append(errs, update("language", *params.Language))
+	}
+	if params.NavMode != nil {
+		errs = append(errs, update("nav_mode", *params.NavMode))
 	}
 
 	for _, err := range errs {

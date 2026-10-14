@@ -39,8 +39,6 @@ func writeHTML(w http.ResponseWriter, status int, tmpl *template.Template, data 
 }
 
 func (s *Server) Handler() http.Handler {
-	staticFS := http.FileServer(http.FS(assets.StaticFS()))
-
 	secure := func(next http.HandlerFunc) http.HandlerFunc {
 		if s.Auth == nil {
 			return next
@@ -51,9 +49,11 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/{$}", s.handleIndex)
 	mux.HandleFunc("/login", s.handleLogin)
-	mux.HandleFunc("/static/{path...}", http.StripPrefix("/static/", staticFS).ServeHTTP)
+	mux.Handle("/static/", http.StripPrefix("/static/", staticHandler()))
 	mux.HandleFunc("/fever/", s.handleFever)
 	mux.HandleFunc("/manifest.json", s.handleManifest)
+	mux.HandleFunc("/sw.js", s.handleServiceWorker)
+	mux.HandleFunc("/healthz", s.handleHealth)
 	mux.HandleFunc("/api/status", secure(s.handleStatus))
 	mux.HandleFunc("/api/folders", secure(s.handleFolderList))
 	mux.HandleFunc("/api/folders/{id}", secure(s.handleFolder))
@@ -69,7 +69,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/page", secure(s.handlePageCrawl))
 	mux.HandleFunc("/logout", secure(s.handleLogout))
 
-	handler := middleware.Base(mux, s.BasePath)
+	handler := middleware.CrossOrigin(mux)
+	handler = middleware.Base(handler, s.BasePath)
+	handler = middleware.SecurityHeaders(handler)
 
 	return middleware.Gzip(handler)
 }
@@ -92,27 +94,17 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	w.Header().Set("Cache-Control", "no-cache")
 	writeHTML(w, http.StatusOK, assets.Templates().Lookup("index.html"), map[string]any{
 		"settings":      settings.Map(),
 		"authenticated": isAuthenticated,
 		"requiresAuth":  requiresAuth,
-	})
-}
-
-func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"$schema":     "https://json.schemastore.org/web-manifest-combined.json",
-		"name":        "yarr!",
-		"short_name":  "yarr",
-		"description": "yet another rss reader",
-		"display":     "standalone",
-		"start_url":   "/" + strings.TrimPrefix(s.BasePath, "/"),
-		"icons": []map[string]any{
-			{
-				"src":   s.BasePath + "/static/favicon.png",
-				"sizes": "64x64",
-				"type":  "image/png",
-			},
+		"version":       s.Version,
+		"config": map[string]any{
+			"settings":      settings.Map(),
+			"authenticated": isAuthenticated,
+			"requiresAuth":  requiresAuth,
+			"version":       s.Version,
 		},
 	})
 }
@@ -218,7 +210,7 @@ func (s *Server) handleFeedList(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case err != nil:
 			log.Printf("Faild to discover feed for %s: %s", form.Url, err)
-			writeJSON(w, http.StatusOK, map[string]string{"status": "notfound"})
+			writeJSON(w, http.StatusOK, map[string]string{"status": "notfound", "error": err.Error()})
 		case len(result.Sources) > 0:
 			writeJSON(
 				w,
@@ -240,7 +232,10 @@ func (s *Server) handleFeedList(w http.ResponseWriter, r *http.Request) {
 			if len(items) > 0 {
 				s.db(r).CreateItems(items)
 			}
-			// TODO: DiscoverFeed must search for favicon too
+			// fetch the favicon in the background so the card shows it right away
+			if finder, ok := s.Scheduler.(interface{ FindFeedFavicon(model.Feed) }); ok && feed != nil {
+				go finder.FindFeedFavicon(*feed)
+			}
 
 			writeJSON(w, http.StatusOK, map[string]any{
 				"status": "success",
@@ -350,8 +345,8 @@ func (s *Server) handleItem(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleItemList(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		perPage := 20
 		query := r.URL.Query()
+		perPage := parsePageSize(query.Get("limit"))
 
 		filter := model.ItemFilter{}
 		if folderID, err := strconv.ParseInt(query.Get("folder_id"), 10, 64); err == nil {
@@ -364,10 +359,14 @@ func (s *Server) handleItemList(w http.ResponseWriter, r *http.Request) {
 			filter.After = &after
 		}
 		if status := query.Get("status"); len(status) != 0 {
-			statusValue := model.StatusValues[status]
+			statusValue, ok := model.StatusValues[status]
+			if !ok {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid status"})
+				return
+			}
 			filter.Status = &statusValue
 		}
-		if search := query.Get("search"); len(search) != 0 {
+		if search := strings.TrimSpace(query.Get("search")); len(search) != 0 {
 			filter.Search = &search
 		}
 		newestFirst := query.Get("oldest_first") != "true"
@@ -377,6 +376,22 @@ func (s *Server) handleItemList(w http.ResponseWriter, r *http.Request) {
 		if len(items) == perPage+1 {
 			hasMore = true
 			items = items[:perPage]
+		}
+
+		if query.Get("view") == "cards" {
+			feedLinks := make(map[int64]string)
+			for _, f := range s.db(r).ListFeeds() {
+				feedLinks[f.Id] = f.Link
+			}
+			cards := make([]CardItem, len(items))
+			for i, item := range items {
+				cards[i] = toCard(item, feedLinks[item.FeedId])
+			}
+			writeJSON(w, http.StatusOK, map[string]any{
+				"list":     cards,
+				"has_more": hasMore,
+			})
+			return
 		}
 
 		for i, item := range items {
@@ -399,7 +414,15 @@ func (s *Server) handleItemList(w http.ResponseWriter, r *http.Request) {
 		if feedID, err := strconv.ParseInt(query.Get("feed_id"), 10, 64); err == nil {
 			filter.FeedID = &feedID
 		}
-		s.db(r).MarkItemsRead(filter)
+		// mark only the items shown above the given one in the timeline
+		if aboveID, err := strconv.ParseInt(query.Get("above_id"), 10, 64); err == nil {
+			filter.AboveID = &aboveID
+			filter.NewestFirst = query.Get("oldest_first") != "true"
+		}
+		if !s.db(r).MarkItemsRead(filter) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -414,6 +437,10 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		var params model.UpdateSettingsParams
 		if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if err := params.Validate(); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
 		if s.db(r).UpdateSettings(params) {
@@ -432,9 +459,11 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleOPMLImport(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
+		r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 		file, _, err := r.FormFile("opml")
 		if err != nil {
 			log.Print(err)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		doc, err := opml.Parse(file)
@@ -556,7 +585,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		username := r.FormValue("username")
 		password := r.FormValue("password")
-		if s.Auth == nil || !s.Auth.Authenticate(w, username, password) {
+		if s.Auth == nil || !s.Auth.Authenticate(w, r, username, password) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -567,7 +596,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if s.Auth != nil {
-		s.Auth.Logout(w)
+		s.Auth.Logout(w, r)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

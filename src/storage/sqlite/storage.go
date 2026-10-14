@@ -42,3 +42,9 @@ func New(path string) (*SQLiteStorage, error) {
 func (s *SQLiteStorage) Close() error {
 	return s.db.Close()
 }
+
+// Ping verifies the database is reachable and its schema readable.
+func (s *SQLiteStorage) Ping() error {
+	var n int
+	return s.db.QueryRow("select count(*) from settings").Scan(&n)
+}

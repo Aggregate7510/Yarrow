@@ -59,8 +59,8 @@ func TestGetSettings(t *testing.T) {
 		if settings.Language != "fr" {
 			t.Errorf("expected fr, got %v", settings.Language)
 		}
-		if settings.ThemeName != "light" {
-			t.Errorf("expected light, got %v", settings.ThemeName)
+		if want := model.SettingsDefault().ThemeName; settings.ThemeName != want {
+			t.Errorf("expected default theme %v, got %v", want, settings.ThemeName)
 		}
 	})
 }

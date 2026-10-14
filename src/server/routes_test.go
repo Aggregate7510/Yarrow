@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/nkanaev/yarr/src/storage"
+	"github.com/nkanaev/yarr/src/worker"
 )
 
 func TestStatic(t *testing.T) {
@@ -98,6 +99,10 @@ func TestFeedCreateWithTitleOverride(t *testing.T) {
 		`))
 	}))
 	defer feedSrv.Close()
+
+	// the test feed lives on loopback, which the fetcher blocks by default
+	worker.SetAllowedNetworks("127.0.0.1")
+	defer worker.SetAllowedNetworks("")
 
 	db, err := storage.New(":memory:")
 	if err != nil {

@@ -280,11 +280,14 @@ func (s *SQLiteStorage) UpdateItemStatus(item_id int64, status model.ItemStatus)
 }
 
 func (s *SQLiteStorage) MarkItemsRead(filter model.MarkFilter) bool {
+	// "Above" in a newest-first timeline means newer, i.e. the opposite
+	// direction of keyset pagination, hence !filter.NewestFirst.
 	predicate, args := listQueryPredicate(model.ItemFilter{
 		FolderID: filter.FolderID,
 		FeedID:   filter.FeedID,
 		Before:   filter.Before,
-	}, false)
+		After:    filter.AboveID,
+	}, !filter.NewestFirst)
 	query := fmt.Sprintf(`
 		update items as i set status = %d
 		where %s and i.status != %d

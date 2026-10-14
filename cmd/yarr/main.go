@@ -52,7 +52,16 @@ func parseAuthfile(authfile io.Reader) (username, password string, err error) {
 func main() {
 	platform.FixConsoleIfNeeded()
 
-	var addr, db, authfile, auth, certfile, keyfile, basepath, logfile string
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "migrate":
+			os.Exit(runMigrate(os.Args[2:]))
+		case "healthcheck":
+			os.Exit(runHealthcheck(os.Args[2:]))
+		}
+	}
+
+	var addr, db, authfile, auth, certfile, keyfile, basepath, logfile, allowedNetworks string
 	var ver, open bool
 
 	flag.CommandLine.SetOutput(os.Stdout)
@@ -63,6 +72,7 @@ func main() {
 		flag.PrintDefaults()
 		fmt.Fprintln(out, "\nThe environmental variables, if present, will be used to provide\nthe default values for the params above:")
 		fmt.Fprintln(out, " ", strings.Join(OptList, ", "))
+		fmt.Fprintf(out, "\nSubcommands:\n  %s migrate -from OLD.db -to NEW.db   import an existing Yarr database\n  %s healthcheck                      probe /healthz (for Docker)\n", os.Args[0], os.Args[0])
 	}
 
 	flag.StringVar(&addr, "addr", opt("YARR_ADDR", "127.0.0.1:7070"), "address to run server on")
@@ -73,6 +83,7 @@ func main() {
 	flag.StringVar(&keyfile, "key-file", opt("YARR_KEYFILE", ""), "`path` to key file for https")
 	flag.StringVar(&db, "db", opt("YARR_DB", ""), "storage file `path`")
 	flag.StringVar(&logfile, "log-file", opt("YARR_LOGFILE", ""), "`path` to log file to use instead of stdout")
+	flag.StringVar(&allowedNetworks, "allowed-networks", opt("YARR_ALLOWED_NETWORKS", ""), "comma-separated `CIDRs` of private networks feeds may be fetched from (blocked by default)")
 	flag.BoolVar(&ver, "version", false, "print application version")
 	flag.BoolVar(&open, "open", false, "open the server in browser")
 	flag.Parse()
@@ -141,8 +152,16 @@ func main() {
 		log.Fatal("Failed to initialise database: ", err)
 	}
 
+	if err := worker.SetAllowedNetworks(allowedNetworks); err != nil {
+		log.Fatal(err)
+	}
+	if allowedNetworks != "" {
+		log.Printf("fetching from private networks allowed for: %s", allowedNetworks)
+	}
+
 	worker.SetVersion(Version)
 	srv := server.NewServer(addr)
+	srv.Version = Version
 
 	if basepath != "" {
 		srv.BasePath = "/" + strings.Trim(basepath, "/")

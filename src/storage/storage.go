@@ -10,6 +10,7 @@ import (
 
 type Storage interface {
 	Close() error
+	Ping() error
 	CountItems() int
 	CreateFeed(params model.CreateFeedParams) *model.Feed
 	CreateFolder(title string) *model.Folder

@@ -432,3 +432,7 @@ func m15_update_item_update_trigger(tx *sql.Tx) error {
 	`)
 	return err
 }
+
+// LatestSchemaVersion is the schema version (sqlite `pragma user_version`)
+// this build migrates databases to.
+func LatestSchemaVersion() int64 { return maxVersion }

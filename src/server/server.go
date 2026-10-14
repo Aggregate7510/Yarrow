@@ -13,6 +13,7 @@ import (
 type Server struct {
 	Addr     string
 	BasePath string
+	Version  string
 
 	Storage   StorageProvider
 	Scheduler FeedScheduler

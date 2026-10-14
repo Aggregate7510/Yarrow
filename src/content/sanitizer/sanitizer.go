@@ -60,7 +60,7 @@ func sanitizeChildren(parent *html.Node, baseURL string) {
 func sanitizeElement(parent, node *html.Node, baseURL string) {
 	tag := node.Data
 
-	if isBlockedTag(tag) {
+	if isBlockedTag(tag) || isTrackingPixel(node) {
 		parent.RemoveChild(node)
 		return
 	}
@@ -363,4 +363,26 @@ func isValidDataAttribute(value string) bool {
 	return slices.ContainsFunc(dataAttributeAllowList, func(prefix string) bool {
 		return strings.HasPrefix(value, prefix)
 	})
+}
+
+// IsBlockedResource reports whether a URL points at a known tracking or
+// share-widget host whose resources are stripped from article content.
+func IsBlockedResource(src string) bool {
+	return isBlockedResource(src)
+}
+
+// isTrackingPixel reports whether node is an <img> declared as 1x1 (or
+// smaller), the usual shape of an analytics beacon embedded in feed content.
+func isTrackingPixel(node *html.Node) bool {
+	if node.Data != "img" {
+		return false
+	}
+	w := htmlutil.Attr(node, "width")
+	h := htmlutil.Attr(node, "height")
+	if w == "" || h == "" {
+		return false
+	}
+	wn, err1 := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(w), "px"))
+	hn, err2 := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(h), "px"))
+	return err1 == nil && err2 == nil && wn <= 1 && hn <= 1
 }

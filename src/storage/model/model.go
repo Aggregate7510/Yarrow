@@ -142,6 +142,12 @@ type MarkFilter struct {
 	FeedID   *int64
 
 	Before *time.Time
+
+	// AboveID limits marking to items that appear above the given item in a
+	// timeline sorted by NewestFirst (newer items when sorting newest first,
+	// older items when sorting oldest first). The item itself is excluded.
+	AboveID     *int64
+	NewestFirst bool
 }
 
 type Folder struct {
@@ -172,6 +178,7 @@ type Settings struct {
 	ThemeSize       float64 `json:"theme_size"`
 	RefreshRate     int64   `json:"refresh_rate"`
 	Language        string  `json:"language"`
+	NavMode         string  `json:"nav_mode"`
 }
 
 type UpdateSettingsParams struct {
@@ -185,6 +192,44 @@ type UpdateSettingsParams struct {
 	ThemeSize       *float64 `json:"theme_size"`
 	RefreshRate     *int64   `json:"refresh_rate"`
 	Language        *string  `json:"language"`
+	NavMode         *string  `json:"nav_mode"`
+}
+
+// Allowed values for enumerated settings. Theme names keep Yarr's original
+// values ("night" is the dark theme) so databases stay interchangeable.
+var (
+	ThemeNames = []string{"light", "sepia", "night", "system"}
+	ThemeFonts = []string{"", "serif", "monospace"}
+	NavModes   = []string{"folders", "expanded", "all"}
+	Filters    = []string{"", "unread", "starred"}
+)
+
+func oneOf(v string, allowed []string) bool {
+	for _, a := range allowed {
+		if v == a {
+			return true
+		}
+	}
+	return false
+}
+
+// Validate rejects out-of-range values before they are persisted.
+func (p UpdateSettingsParams) Validate() error {
+	switch {
+	case p.ThemeName != nil && !oneOf(*p.ThemeName, ThemeNames):
+		return fmt.Errorf("invalid theme_name %q", *p.ThemeName)
+	case p.ThemeFont != nil && !oneOf(*p.ThemeFont, ThemeFonts):
+		return fmt.Errorf("invalid theme_font %q", *p.ThemeFont)
+	case p.NavMode != nil && !oneOf(*p.NavMode, NavModes):
+		return fmt.Errorf("invalid nav_mode %q", *p.NavMode)
+	case p.Filter != nil && !oneOf(*p.Filter, Filters):
+		return fmt.Errorf("invalid filter %q", *p.Filter)
+	case p.RefreshRate != nil && (*p.RefreshRate < 0 || *p.RefreshRate > 7*24*60):
+		return fmt.Errorf("invalid refresh_rate %d", *p.RefreshRate)
+	case p.ThemeSize != nil && (*p.ThemeSize < 0.5 || *p.ThemeSize > 3):
+		return fmt.Errorf("invalid theme_size %v", *p.ThemeSize)
+	}
+	return nil
 }
 
 func (s Settings) Map() map[string]any {
@@ -199,6 +244,7 @@ func (s Settings) Map() map[string]any {
 		"theme_size":        s.ThemeSize,
 		"refresh_rate":      s.RefreshRate,
 		"language":          s.Language,
+		"nav_mode":          s.NavMode,
 	}
 }
 
@@ -209,11 +255,12 @@ func SettingsDefault() Settings {
 		FeedListWidth:   300,
 		ItemListWidth:   300,
 		SortNewestFirst: true,
-		ThemeName:       "light",
+		ThemeName:       "system",
 		ThemeFont:       "",
 		ThemeSize:       1,
-		RefreshRate:     0,
+		RefreshRate:     60,
 		Language:        "en",
+		NavMode:         "folders",
 	}
 }
 

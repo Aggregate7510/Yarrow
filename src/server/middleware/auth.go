@@ -21,24 +21,40 @@ func IsAuthenticated(req *http.Request, username, password string) bool {
 	return StringsEqual(parts[1], secret(username, password))
 }
 
-func Authenticate(rw http.ResponseWriter, username, password, basepath string) {
+// Authenticate sets the session cookie. The Secure flag follows the scheme
+// the browser actually used (directly or via a TLS-terminating proxy), so
+// login works both on plain-HTTP LAN addresses and behind HTTPS proxies
+// such as Tailscale Serve, while never being sent in the clear once HTTPS
+// is in use.
+func Authenticate(rw http.ResponseWriter, r *http.Request, username, password, basepath string) {
 	http.SetCookie(rw, &http.Cookie{
 		Name:     "auth",
 		Value:    username + ":" + secret(username, password),
 		MaxAge:   604800, // 1 week
-		Path:     basepath,
-		Secure:   true,
+		Path:     cookiePath(basepath),
+		Secure:   IsSecureRequest(r),
+		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
 
-func Logout(rw http.ResponseWriter, basepath string) {
+func Logout(rw http.ResponseWriter, r *http.Request, basepath string) {
 	http.SetCookie(rw, &http.Cookie{
-		Name:   "auth",
-		Value:  "",
-		MaxAge: -1,
-		Path:   basepath,
+		Name:     "auth",
+		Value:    "",
+		MaxAge:   -1,
+		Path:     cookiePath(basepath),
+		Secure:   IsSecureRequest(r),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+func cookiePath(basepath string) string {
+	if basepath == "" {
+		return "/"
+	}
+	return "/" + strings.Trim(basepath, "/")
 }
 
 func StringsEqual(p1, p2 string) bool {

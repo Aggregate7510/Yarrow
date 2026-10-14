@@ -11,8 +11,8 @@ import (
 type AuthProvider interface {
 	Middleware(next http.Handler) http.HandlerFunc
 	IsAuthenticated(request *http.Request) bool
-	Authenticate(rw http.ResponseWriter, username, password string) bool
-	Logout(rw http.ResponseWriter)
+	Authenticate(rw http.ResponseWriter, r *http.Request, username, password string) bool
+	Logout(rw http.ResponseWriter, r *http.Request)
 	FeverAPIKey() string
 }
 
@@ -34,16 +34,16 @@ func (a *localAuth) IsAuthenticated(r *http.Request) bool {
 	return middleware.IsAuthenticated(r, a.Username, a.Password)
 }
 
-func (a *localAuth) Authenticate(rw http.ResponseWriter, username, password string) bool {
+func (a *localAuth) Authenticate(rw http.ResponseWriter, r *http.Request, username, password string) bool {
 	if !middleware.StringsEqual(username, a.Username) || !middleware.StringsEqual(password, a.Password) {
 		return false
 	}
-	middleware.Authenticate(rw, a.Username, a.Password, a.BasePath)
+	middleware.Authenticate(rw, r, a.Username, a.Password, a.BasePath)
 	return true
 }
 
-func (a *localAuth) Logout(rw http.ResponseWriter) {
-	middleware.Logout(rw, a.BasePath)
+func (a *localAuth) Logout(rw http.ResponseWriter, r *http.Request) {
+	middleware.Logout(rw, r, a.BasePath)
 }
 
 func (a *localAuth) FeverAPIKey() string {

@@ -37,3 +37,14 @@ func TestSanitizeTestData(t *testing.T) {
 		})
 	}
 }
+
+func TestSanitizeRemovesTrackingPixels(t *testing.T) {
+	input := `<p>hi<img src="https://t.example.com/p.gif" width="1" height="1"><img src="https://example.com/a.jpg" width="600" height="400"></p>`
+	got := Sanitize("https://example.com", input)
+	if strings.Contains(got, "p.gif") {
+		t.Errorf("tracking pixel not removed: %s", got)
+	}
+	if !strings.Contains(got, "a.jpg") {
+		t.Errorf("real image removed: %s", got)
+	}
+}

@@ -32,3 +32,9 @@ func New(connStr string) (*PostgresStorage, error) {
 func (s *PostgresStorage) Close() error {
 	return s.db.Close()
 }
+
+// Ping verifies the database is reachable and its schema readable.
+func (s *PostgresStorage) Ping() error {
+	var n int
+	return s.db.QueryRow("select count(*) from settings").Scan(&n)
+}
