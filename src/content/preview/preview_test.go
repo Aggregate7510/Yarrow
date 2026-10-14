@@ -19,7 +19,7 @@ func TestTextStripsMarkupAndScripts(t *testing.T) {
 
 func TestTextBlockBoundaries(t *testing.T) {
 	got := Text(`<h2>Title</h2><p>One</p><ul><li>a</li><li>b</li></ul>line<br>break`)
-	if got != "Title One a b line break" {
+	if got != "Title. One a. b. line break" {
 		t.Fatalf("got %q", got)
 	}
 }
@@ -51,6 +51,10 @@ func TestTruncate(t *testing.T) {
 
 func TestSnippetDropsRepeatedTitle(t *testing.T) {
 	got := Snippet("Big News", "<h1>Big News</h1><p>Body text here.</p>", 100)
+	if got != "Body text here." {
+		t.Fatalf("got %q", got)
+	}
+	got = Snippet("Big News", "<h1>Big News!</h1><p>Body text here.</p>", 100)
 	if got != "Body text here." {
 		t.Fatalf("got %q", got)
 	}

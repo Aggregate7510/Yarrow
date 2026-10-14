@@ -3,7 +3,7 @@
     <v-sidebar />
 
     <main class="main" :inert="state.reader.open || undefined">
-      <div v-show="state.page === 'timeline'">
+      <div v-show="state.page === 'timeline'" class="timeline-page">
         <v-topbar ref="topbar" />
         <v-timeline />
       </div>

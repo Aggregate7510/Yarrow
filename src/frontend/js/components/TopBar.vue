@@ -1,5 +1,5 @@
 <template>
-  <header class="topbar" :class="{ 'is-scrolled': scrolled }">
+  <header ref="bar" class="topbar" :class="{ 'is-scrolled': scrolled, 'is-compact': compact && !searchOpen }">
     <div class="column">
       <div class="topbar-row">
         <button
@@ -101,6 +101,10 @@ import { debounce } from "../utils";
 import VIcon from "./Icon.vue";
 
 const scrolled = ref(false);
+// on phones the chips/filter rows tuck away while scrolling down and come
+// back as soon as the reader scrolls up, like a native large-title bar
+const compact = ref(false);
+let lastY = 0;
 const searchOpen = ref(!!state.search);
 const query = ref(state.search);
 const searchInput = ref<HTMLInputElement>();
@@ -152,7 +156,31 @@ function onViewMenu(e: Event) {
   openMenu(e, entries, title.value);
 }
 
-const onScroll = () => (scrolled.value = window.scrollY > 4);
-onMounted(() => window.addEventListener("scroll", onScroll, { passive: true }));
-onUnmounted(() => window.removeEventListener("scroll", onScroll));
+const bar = ref<HTMLElement>();
+let ro: ResizeObserver | undefined;
+// the bar is fixed on phones; reserve its full (expanded) height in the page
+// so collapsing it never shifts the timeline
+function measure() {
+  if (!bar.value || compact.value) return;
+  document.documentElement.style.setProperty("--topbar-h", bar.value.offsetHeight + "px");
+}
+
+const onScroll = () => {
+  const y = window.scrollY;
+  scrolled.value = y > 4;
+  if (y < 80) compact.value = false;
+  else if (y > lastY + 6) compact.value = true;
+  else if (y < lastY - 6) compact.value = false;
+  lastY = y;
+};
+onMounted(() => {
+  window.addEventListener("scroll", onScroll, { passive: true });
+  ro = new ResizeObserver(measure);
+  if (bar.value) ro.observe(bar.value);
+  measure();
+});
+onUnmounted(() => {
+  window.removeEventListener("scroll", onScroll);
+  ro?.disconnect();
+});
 </script>

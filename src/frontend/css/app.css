@@ -1528,3 +1528,48 @@ form.list-row:focus-within {
   min-height: 46px;
   font-size: 1rem;
 }
+
+/* collapsible secondary rows of the top bar (phones only) */
+.topbar .chips,
+.topbar .topbar-sub {
+  transition: max-height 0.22s ease, opacity 0.18s ease, padding 0.22s ease;
+  max-height: 64px;
+}
+@media (max-width: 959px) {
+  .topbar.is-compact .chips,
+  .topbar.is-compact .topbar-sub {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+}
+@media (max-width: 639px) {
+  .view-title {
+    font-size: 1.6rem;
+  }
+  .topbar-row {
+    min-height: 52px;
+  }
+  .chips {
+    padding-bottom: 8px;
+  }
+  .topbar-sub {
+    padding-bottom: 8px;
+  }
+}
+@media (max-width: 959px) {
+  .timeline-page {
+    padding-top: var(--topbar-h, 150px);
+  }
+  .timeline-page .topbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+  }
+  .pill-notice {
+    top: calc(var(--safe-top) + 72px);
+  }
+}

@@ -41,6 +41,11 @@ var blockLevel = map[atom.Atom]bool{
 	atom.Hr: true, atom.Dd: true, atom.Dt: true,
 }
 
+var sentenceLike = map[atom.Atom]bool{
+	atom.H1: true, atom.H2: true, atom.H3: true, atom.H4: true, atom.H5: true,
+	atom.H6: true, atom.Li: true, atom.Dt: true, atom.Dd: true,
+}
+
 var spaceRun = regexp.MustCompile(`\s+`)
 
 func parseFragment(content string) []*html.Node {
@@ -79,6 +84,16 @@ func Text(content string) string {
 			walk(c)
 		}
 		if n.Type == html.ElementNode && blockLevel[n.DataAtom] {
+			// headings and list items read as run-on text once flattened;
+			// end them like sentences when they don't already
+			if sentenceLike[n.DataAtom] {
+				trimmed := strings.TrimRightFunc(b.String(), unicode.IsSpace)
+				if r, _ := utf8.DecodeLastRuneInString(trimmed); unicode.IsLetter(r) || unicode.IsDigit(r) {
+					b.Reset()
+					b.WriteString(trimmed)
+					b.WriteByte('.')
+				}
+			}
 			b.WriteByte(' ')
 		}
 	}
@@ -116,7 +131,7 @@ func Snippet(title, content string, max int) string {
 		t := strings.TrimSpace(title)
 		if len(t) > 0 && len(text) >= len(t) && strings.EqualFold(text[:len(t)], t) {
 			text = strings.TrimLeftFunc(text[len(t):], func(r rune) bool {
-				return unicode.IsSpace(r) || r == ':' || r == '-' || r == '—' || r == '|'
+				return unicode.IsSpace(r) || unicode.IsPunct(r) || r == '|'
 			})
 		}
 	}

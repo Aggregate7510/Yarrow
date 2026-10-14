@@ -60,6 +60,23 @@ export const debounceMixin = {
 
 export type RelUnit = "minute" | "hour" | "day";
 
+// Browsers occasionally report tags Intl rejects (e.g. "en-US@posix").
+const localeCache = new Map<string, string | undefined>();
+export function safeLocale(locale?: string): string | undefined {
+  if (!locale) return undefined;
+  if (locale === "en") locale = "en-GB";
+  if (!localeCache.has(locale)) {
+    let ok: string | undefined = locale;
+    try {
+      new Intl.NumberFormat(locale);
+    } catch {
+      ok = undefined;
+    }
+    localeCache.set(locale, ok);
+  }
+  return localeCache.get(locale);
+}
+
 export function dateRepr(d: Date, locale?: string): string {
   var sec = (new Date().getTime() - d.getTime()) / 1000;
   var neg = sec < 0;
@@ -83,17 +100,15 @@ export function dateRepr(d: Date, locale?: string): string {
 }
 
 export function dateString(d: Date, locale?: string): string {
-  if (locale == "en") locale = "en-GB";  // empire strikes back
-  return d.toLocaleDateString(locale, {
+  return d.toLocaleDateString(safeLocale(locale), {
     year: "numeric",
     month: "short",
     day: "numeric",
   })
 }
 
-export function dateTimeString(d: Date, locale: string): string {
-  if (locale == "en") locale = "en-GB";  // empire strikes back
-  return d.toLocaleDateString(locale, {
+export function dateTimeString(d: Date, locale?: string): string {
+  return d.toLocaleDateString(safeLocale(locale), {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -103,7 +118,7 @@ export function dateTimeString(d: Date, locale: string): string {
 }
 
 function formatRel(n: number, unit: RelUnit, locale?: string): string {
-  return new Intl.NumberFormat(locale, { style: "unit", unit }).format(n);
+  return new Intl.NumberFormat(safeLocale(locale), { style: "unit", unit, unitDisplay: "short" }).format(n);
 }
 
 // returns ms until relative text rendered by dateRepr would change,
