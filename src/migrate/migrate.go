@@ -271,3 +271,32 @@ func copyFile(src, dst string) error {
 	}
 	return out.Close()
 }
+
+// Backup writes a consistent, compacted copy of a live database to dst using
+// SQLite's VACUUM INTO. It is safe while Yarrow is running: the source is
+// opened read-only and the snapshot is transactionally consistent.
+func Backup(src, dst string) (Counts, error) {
+	if exists(dst) {
+		return Counts{}, fmt.Errorf("%s already exists", dst)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return Counts{}, err
+	}
+	db, err := openReadOnly(src)
+	if err != nil {
+		return Counts{}, err
+	}
+	defer db.Close()
+	if _, err := db.Exec("vacuum into ?", dst); err != nil {
+		return Counts{}, err
+	}
+	check, err := openReadOnly(dst)
+	if err != nil {
+		return Counts{}, err
+	}
+	defer check.Close()
+	if err := checkIntegrity(check); err != nil {
+		return Counts{}, err
+	}
+	return readCounts(check)
+}

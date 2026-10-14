@@ -145,3 +145,28 @@ func TestMigrateRejectsBadInput(t *testing.T) {
 		t.Fatal("no target should be created on failure")
 	}
 }
+
+func TestBackup(t *testing.T) {
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(os.Stderr)
+	dir := t.TempDir()
+	src := filepath.Join(dir, "live.db")
+	makeYarrDB(t, src)
+	// keep a writer open, as a running server would
+	live, err := storage.New(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer live.Close()
+	dst := filepath.Join(dir, "backups", "b.db")
+	c, err := Backup(src, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Items != 4 || c.Starred != 1 || c.Folders != 2 {
+		t.Fatalf("unexpected counts %s", c)
+	}
+	if _, err := Backup(src, dst); err == nil {
+		t.Fatal("must not overwrite an existing backup")
+	}
+}

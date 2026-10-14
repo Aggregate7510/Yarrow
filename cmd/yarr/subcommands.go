@@ -50,6 +50,26 @@ func runMigrate(args []string) int {
 	return 0
 }
 
+func runBackup(args []string) int {
+	fs := flag.NewFlagSet("backup", flag.ContinueOnError)
+	db := fs.String("db", opt("YARR_DB", ""), "`path` of the live database")
+	to := fs.String("to", "", "`path` of the backup file to create")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *db == "" || *to == "" {
+		fmt.Fprintf(os.Stderr, "Usage: %s backup [-db LIVE.db] -to BACKUP.db\n", os.Args[0])
+		return 2
+	}
+	counts, err := migrate.Backup(*db, *to)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "backup failed:", err)
+		return 1
+	}
+	fmt.Printf("backup written to %s (%s)\n", *to, counts)
+	return 0
+}
+
 // runHealthcheck probes the local server. It exists so container images do
 // not need curl or wget for their HEALTHCHECK.
 func runHealthcheck(args []string) int {

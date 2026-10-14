@@ -58,6 +58,8 @@ func main() {
 			os.Exit(runMigrate(os.Args[2:]))
 		case "healthcheck":
 			os.Exit(runHealthcheck(os.Args[2:]))
+		case "backup":
+			os.Exit(runBackup(os.Args[2:]))
 		}
 	}
 
@@ -72,7 +74,7 @@ func main() {
 		flag.PrintDefaults()
 		fmt.Fprintln(out, "\nThe environmental variables, if present, will be used to provide\nthe default values for the params above:")
 		fmt.Fprintln(out, " ", strings.Join(OptList, ", "))
-		fmt.Fprintf(out, "\nSubcommands:\n  %s migrate -from OLD.db -to NEW.db   import an existing Yarr database\n  %s healthcheck                      probe /healthz (for Docker)\n", os.Args[0], os.Args[0])
+		fmt.Fprintf(out, "\nSubcommands:\n  %s migrate -from OLD.db -to NEW.db   import an existing Yarr database\n  %s backup -to FILE.db                consistent copy of the live database\n  %s healthcheck                      probe /healthz (for Docker)\n", os.Args[0], os.Args[0], os.Args[0])
 	}
 
 	flag.StringVar(&addr, "addr", opt("YARR_ADDR", "127.0.0.1:7070"), "address to run server on")
